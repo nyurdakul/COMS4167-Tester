@@ -1,81 +1,80 @@
-#!/usr/bin/env python
-
-import fnmatch
 import os
+import subprocess
+import sys
 import argparse
 
-def guess_fosssim():
-    guess = "./build/FOSSSim/FOSSSim"
-    if os.path.isfile(guess):
-        return guess
-    else:
-        return None
+def find_tests(theme):
+    """Find all of the test files in the assets directory."""
+    test_files = []
+    exclude = set()
+    if theme.omit:
+        exclude = set(theme.omit)
+    
+    for dirpath, dirnames, filenames in os.walk("/home/codio/workspace/assets/{}/" .format(theme.dir)):
+        dirnames[:] = [d for d in dirnames if d not in exclude] 
+        for filename in filenames:
+            fullname = dirpath.split('/')[-1] + '/' + filename
+            if filename.endswith('.xml') and fullname not in exclude:
+                if theme.specific is None or dirpath.split('/')[-1] in theme.specific or fullname in theme.specific:
+                    test_files.append(os.path.join(dirpath, filename))
 
-def guess_asset_directory():
-    root_directories = ['.', '..']
+    return test_files
 
-    for root in root_directories:
-        possible_assets = os.path.join(root, "assets/")
-        if os.path.exists(possible_assets):
-            return possible_assets
-
-SCENE_EXTENSION = '.xml'
-def get_scenes(asset_directory_path):
-    scenes = []
-    for root, dirnames, filenames in os.walk(asset_directory_path):
-      for filename in fnmatch.filter(filenames, '*' + SCENE_EXTENSION):
-          fullpath = os.path.join(root, filename)
-          truncated = fullpath[len(asset_directory_path):]
-          scenes.append(truncated)
-
-    return scenes
-
-def print_scenes(scenes=[]):
-    print("FOSSSim Scenes Available:")
-    for i, s in enumerate(scenes):
-        print("\033[94m{:4d}\033[0m: {}".format(i, s))
-
-parser = argparse.ArgumentParser(description='Makes it easy to run scenes with FOSSSim!')
-parser.add_argument('-d', 
-                    dest='assets', 
-                    metavar='PATH', 
-                    type=str, 
-                    help='specify the path to an assets/ directory. By default, the current folder is checked.')
-
-parser.add_argument('--FOSSSim', 
-                    dest='fosssim',
-                    metavar='<path to FOSSSim>', 
-                    type=str, 
-                    help='specify a FOSSSim executable to be used to run the scenes.')
-parser.add_argument('scene_indices', metavar='SCENE_INDEX', type=int, nargs='*', help='The index of a scene to be run')
 
 def main():
-    args = parser.parse_args()
+    """Collect the tests for the current milestone and run them against the oracle.
 
-    asset_directory = args.assets  or guess_asset_directory()
-    if asset_directory is None:
-        print("Failed to find an asset directory. Try specifying an asset directory with the -d flag.")
-        return
+    If there are extra credit tests, they can be run independently of the other tests
+    by using the --extra or -e flags. To run specific tests, one can use the --specific
+    or -s flags with the name of the test directory:
+    
+    --specific -s
+    --extra -e
+    --omit -o
 
-    scenes          = get_scenes(asset_directory)
+    Examples
+    --------
+    $  python3 run_tests.py t4m1
+        $  python3 run_tests.py t4m1 -e
+    $  python3 run_tests.py t4m1 -s SpringTests
+    """
+    
+    parser = argparse.ArgumentParser(description='Run Oracle tests')
+    parser.add_argument('-s', '--specific', nargs='*')
+    parser.add_argument('-e', '--extra', action='store_true')
+    parser.add_argument('-o', '--omit', nargs='*')
+    parser.add_argument('dir', type=str, help='Name of the theme')
+    args = parser.parse_args();
+    
+    theme = args.dir
+    
+    if args.extra:
+        args.dir += "_extracredit" 
+        
+    tests = find_tests(args)
+    successful_tests = 0
+    failed_tests = 0
 
-    fosssim = args.fosssim or guess_fosssim()
+    for test in sorted(tests):
+        print('Running test {}: ' .format(test), end='')
+        subprocess.check_output(['/home/codio/workspace/build/FOSSSim/FOSSSim', '-s', '{}' .format(test),
+                                 '-d', '0', '-o', '/home/codio/workspace/test_output.bin'])
+
+        oracle = subprocess.check_output(['/home/codio/workspace/oracle/FOSSSimOracle{}' .format(theme.upper()),
+                                          '-s', '{}' .format(test), '-d', '0', '-i', '/home/codio/workspace/test_output.bin'],
+                                          universal_newlines=True)
+
+        if 'Overall success: Passed.' in oracle:
+            successful_tests += 1
+            print('Passed.')
+        elif 'Overall success: Failed.' in oracle:
+            failed_tests += 1
+            print('Failed.')
+
+    print('------------------------------------------------')
+    print('Successful Tests: {}' .format(successful_tests))
+    print('Failed Tests: {}' .format(failed_tests))
+    print('------------------------------------------------')
 
 
-    if len(args.scene_indices) == 0:
-        if len(scenes) == 0:
-            print("Failed to find any scenes in {0}! Try specifying another asset directory with the -d flag.".format(asset_directory))
-        else:
-            print_scenes(scenes)
-        return
-
-    if fosssim is None:
-        print("Failed to locate FOSSSim executable. Try specifying it with the --FOSSSim flag.")
-        return
-
-    for scene_index in args.scene_indices:
-        scene_fullpath = os.path.join(asset_directory, scenes[scene_index])
-        os.system("{0} -s {1}".format(fosssim, scene_fullpath))
-
-if __name__ == '__main__':
-    main()
+main()
