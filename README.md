@@ -10,7 +10,7 @@ In order to run the program you need to specify which assignment you are working
 
 ### Optional Arguments
 
-**--extra** or **-e**: Use this flag if you want the extra credit folder to be graded. Currently the script grades either the main assignment or the extra credit, not both at the same time.
+**--extra** or **-e**: Use this flag if you want the optional assets folder to be graded. Currently the script grades either the main assignment or the optional, not both at the same time.
 
 **--specific** or **-s**: Specific files and/or directories you want to test.
 
