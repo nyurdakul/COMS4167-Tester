@@ -24,7 +24,7 @@ def find_tests(theme):
 def main():
     """Collect the tests for the current milestone and run them against the oracle.
 
-    If there are extra credit tests, they can be run independently of the other tests
+    If there are optional tests, they can be run independently of the other tests
     by using the --extra or -e flags. To run specific tests, one can use the --specific
     or -s flags with the name of the test directory:
     
@@ -49,7 +49,7 @@ def main():
     theme = args.dir
     
     if args.extra:
-        args.dir += "_extracredit" 
+        args.dir += "_optional" 
         
     tests = find_tests(args)
     successful_tests = 0
